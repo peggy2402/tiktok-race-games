@@ -28,15 +28,47 @@ for (let i = 1; i <= 13; i++) {
 let userScores = {};
 
 // Username TikTok LIVE của bạn
-const tiktokUsername = "thayconphc";
+const tiktokUsername = "buivinhphuchotboykeokeo";
 
-const tiktok = new WebcastPushConnection(tiktokUsername);
-
-tiktok.connect().then(() => {
-  console.log("Connected to TikTok Live");
-}).catch(err => {
-  console.error("Lỗi kết nối TikTok Live:", err);
+// Cấu hình kết nối TikTok Live (Thêm options để giả lập trình duyệt và tránh lỗi 200)
+const tiktok = new WebcastPushConnection(tiktokUsername, {
+  processInitialData: false,
+  enableExtendedGiftInfo: true,
+  enableWebsocketUpgrade: true,
+  requestPollingInterval: 2000,
+  clientParams: {
+    "app_language": "en-US",
+    "device_platform": "web_pc"
+  }
 });
+
+// Hàm xử lý kết nối để có thể tái sử dụng (Reconnect)
+function connectTikTok() {
+  tiktok.connect().then(state => {
+    console.log(`✅ Đã kết nối tới TikTok Live: ${tiktokUsername} (Room ID: ${state.roomId})`);
+  }).catch(err => {
+    console.error("❌ Lỗi kết nối:", err);
+    console.log("🔄 Đang thử kết nối lại sau 5 giây...");
+    setTimeout(connectTikTok, 5000);
+  });
+}
+
+// Lắng nghe sự kiện mất kết nối để tự động reconnect
+tiktok.on('disconnected', () => {
+  console.warn("⚠️ Mất kết nối tới Live Stream!");
+  console.log("🔄 Đang thử kết nối lại sau 5 giây...");
+  setTimeout(connectTikTok, 5000);
+});
+
+// Lắng nghe sự kiện Stream kết thúc
+tiktok.on('streamEnd', () => {
+  console.warn("⚠️ Stream đã kết thúc!");
+  // Tùy chọn: Có thể thử kết nối lại đề phòng họ live lại ngay
+  setTimeout(connectTikTok, 10000);
+});
+
+// Bắt đầu kết nối lần đầu
+connectTikTok();
 
 // Mapping tên Quốc Gia để hiển thị Log cho dễ nhìn
 const COUNTRY_NAMES = {
