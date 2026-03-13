@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TikTok Live Race</title>
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+
+<style>
+  body {
+    background: rgba(0, 0, 0, 0); /* Nền trong suốt cho OBS */
+    font-size: 24px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: rgba(0, 0, 0, 0);
+  }
+
+  /* Container chính để chia layout dọc */
+  .main-container {
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* Khu vực Header chứa 2 bảng xếp hạng */
+  .header-container {
+    display: flex;
+    justify-content: center; /* Căn giữa 2 bảng */
+    gap: 20px; /* Khoảng cách giữa 2 bảng */
+    padding: 10px;
+    flex-shrink: 0; /* Không bị co lại */
+    z-index: 1000;
+  }
+
+  /* --- BOARD LAYOUT (Leaderboards) --- */
+  .board-panel {
+    /* Bỏ position fixed để không đè lên nhau */
+    position: relative; 
+    background: rgba(0, 0, 0, 0.85);
+    border: 2px solid;
+    border-radius: 12px;
+    padding: 10px;
+    color: white;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    width: 280px;
+    transition: all 0.3s ease;
+  }
+
+  .board-title {
+    text-align: center;
+    font-weight: 800;
+    text-transform: uppercase;
+    border-bottom: 2px solid rgba(255,255,255,0.2);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+    font-size: 18px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+  }
+
+  .board-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 0;
+    font-size: 16px;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .rank-num { font-weight: bold; width: 25px; text-align: center; }
+  .item-info { flex-grow: 1; display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .item-score { font-weight: bold; color: #fff; text-shadow: 0 0 5px currentColor; }
+
+  /* Bảng Quốc Gia (Top Left Desktop) */
+  #country-board {
+    border-color: #00f3ff; /* Neon Blue */
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+  }
+  #country-board .board-title { color: #00f3ff; }
+  #country-board .rank-num { color: #00f3ff; }
+
+  /* Bảng Đại Gia (Top Right Desktop) */
+  #mvp-board {
+    border-color: #ffd700; /* Gold */
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  #mvp-board .board-title { color: #ffd700; }
+  #mvp-board .rank-num { color: #ffd700; }
+
+
+  /* --- RACE AREA --- */
+  #race-board {
+    width: 100%;
+    flex-grow: 1; /* Chiếm hết phần còn lại */
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: 10px;
+    box-sizing: border-box;
+    overflow-y: auto; /* Cho phép cuộn nếu quá nhiều xe */
+  }
+
+  .track-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    width: 100%;
+    padding: 5px 20px;
+    box-sizing: border-box;
+    position: relative;
+    margin-bottom: 10px;
+  }
+
+  .flag {
+    width: 50px;
+    height: 35px;
+    object-fit: cover;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.2);
+    z-index: 2;
+  }
+
+  .gift-img {
+    width: 35px;
+    height: 35px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+    z-index: 2;
+  }
+
+  .track {
+    flex-grow: 1;
+    height: 50px;
+    position: relative;
+    margin-left: 15px;
+    background: rgba(255, 255, 255, 0.05); /* Track background nhẹ */
+    border-radius: 25px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Đường vạch kẻ đứt */
+  .track::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 10px;
+    right: 10px;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.3) 0, rgba(255,255,255,0.3) 10px, transparent 10px, transparent 20px);
+    transform: translateY(-50%);
+  }
+
+  .car {
+    position: absolute;
+    bottom: 8px; /* Căn chỉnh vịt đứng trên track */
+    width: 70px; /* Desktop Size */
+    height: auto;
+    left: 0px;
+    z-index: 20;
+    will-change: left; /* Tối ưu hiệu năng render */
+    /* Duck mặc định chạy, không cần rung lắc nữa cho mượt */
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5));
+  }
+
+  .fruit {
+    position: absolute;
+    bottom: 12px;
+    font-size: 20px;
+    z-index: 5;
+    animation: float 1.5s ease-in-out infinite alternate, glow 1s ease-in-out infinite alternate;
+  }
+
+  @keyframes float { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+  @keyframes glow { from { filter: drop-shadow(0 0 2px gold); } to { filter: drop-shadow(0 0 10px #fff700); } }
+
+  /* --- RESPONSIVE MOBILE (Dưới 768px) --- */
+  @media (max-width: 768px) {
+    .header-container {
+      flex-direction: column; /* Xếp dọc trên mobile */
+      align-items: center;
+      gap: 5px;
+      padding: 5px;
+    }
+
+    .board-panel {
+      width: 95%;
+      font-size: 14px;
+      padding: 5px;
+    }
+
+    /* Khu vực đua: Ở giữa */
+    #race-board {
+      padding-bottom: 20px;
+    }
+    
+    .track-container {
+      gap: 8px;
+      padding: 2px 10px;
+      margin-bottom: 5px;
+    }
+
+    .flag {
+      width: 30px;
+      height: 22px;
+      border-radius: 4px;
+    }
+
+    .gift-img {
+      width: 25px; height: 25px;
+    }
+
+    .track {
+      height: 30px;
+      margin-left: 8px;
+    }
+
+    .car {
+      width: 40px; /* Mobile Duck Size */
+      bottom: 5px;
+    }
+
+    .fruit {
+      font-size: 14px;
+      bottom: 5px;
+    }
+
+    #mvp-board .board-title {
+      font-size: 14px;
+      margin-bottom: 2px;
+      padding-bottom: 2px;
+    }
+    
+    #mvp-board #mvp-list {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+    }
+    
+    #mvp-board .board-item {
+      border: none;
+      padding: 0;
+    }
+
+    /* COUNTDOWN OVERLAY */
+    #countdown-layer {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      transition: opacity 0.5s ease-out;
+    }
+
+    #countdown-text {
+      font-size: 150px;
+      font-weight: 900;
+      color: #ffd700;
+      text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+      animation: pulse 0.8s infinite;
+    }
+
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.2); } 100% { transform: scale(1); } }
+  }
+</style>
+</head>
+
+<body>
+
+  <!-- Hiệu ứng Đếm Ngược -->
+  <div id="countdown-layer">
+    <div id="countdown-text">READY</div>
+  </div>
+
+  <div class="main-container">
+    <!-- Header chứa 2 bảng -->
+    <div class="header-container">
+      <!-- Bảng xếp hạng QUỐC GIA -->
+      <div id="country-board" class="board-panel">
+        <div class="board-title">🏆 Top Countries</div>
+        <div id="country-list">
+          <div style="text-align:center; font-size:14px; color:#aaa;">Đang tải...</div>
+        </div>
+      </div>
+
+      <!-- Bảng xếp hạng ĐẠI GIA -->
+      <div id="mvp-board" class="board-panel">
+        <div class="board-title">👑 Top Tycoons</div>
+        <div id="mvp-list">
+          <div style="text-align:center; font-size:14px; color:#aaa;">Chưa có dữ liệu...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Khu vực chứa 10 đường đua -->
+    <div id="race-board"></div>
+  </div>
+
+<script>
+  // Danh sách 13 quốc gia (Chủ yếu Đông Nam Á)
+  const countries = [
+    { id: 'car1', flag: 'https://flagcdn.com/w80/id.png', name: 'Indonesia', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp' }, // Rose
+    { id: 'car2', flag: 'https://flagcdn.com/w80/vn.png', name: 'Vietnam', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.webp' }, // Đỉnh (Finger Heart)
+    { id: 'car3', flag: 'https://flagcdn.com/w80/ph.png', name: 'Philippines', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/fc549cf1bc61f9c8a1c97ebab68dced7.png~tplv-obj.webp' }, // Love you
+    { id: 'car4', flag: 'https://flagcdn.com/w80/th.png', name: 'Thailand', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/4a68411b3e92fc2bf68d458d5f906b74.png~tplv-obj.webp' }, // Hiểu ý tôi chứ (Naughty)
+    { id: 'car5', flag: 'https://flagcdn.com/w80/my.png', name: 'Malaysia', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/34190d129480492b9b6eefb70c7c1dec.png~tplv-obj.webp' }, // Kiếm Ánh Sáng
+    { id: 'car6', flag: 'https://flagcdn.com/w80/sa.png', name: 'Saudi Arabia', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/802a21ae29f9fae5abe3693de9f874bd~tplv-obj.webp' }, // Tiktok
+    { id: 'car7', flag: 'https://flagcdn.com/w80/ae.png', name: 'UAE', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/0b4f61e8ab637f11449300d03929ef87.png~tplv-obj.webp' }, // Pop
+    { id: 'car8', flag: 'https://flagcdn.com/w80/us.png', name: 'United States', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp' }, // Kem ốc quế (Ice Cream)
+    { id: 'car9', flag: 'https://flagcdn.com/w80/jp.png', name: 'Japan', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.webp' }, // Nhạc tự do (Music Note)
+    { id: 'car10', flag: 'https://flagcdn.com/w80/kr.png', name: 'South Korea', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.webp' }, // Nhạc xưa (Vinyl Record)
+    { id: 'car11', flag: 'https://flagcdn.com/w80/mx.png', name: 'Mexico', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp' }, // Que phát sáng (Glow Stick)
+    { id: 'car12', flag: 'https://flagcdn.com/w80/br.png', name: 'Brazil', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp' }, // GG
+    { id: 'car13', flag: 'https://flagcdn.com/w80/gb.png', name: 'UK', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp' } // Bánh sinh nhật (Birthday Cake)
+  ];
+
+  const board = document.getElementById('race-board');
+  const fruits = ['🍌', '🍎', '🍊', '🍉', '🍇', '🍓', '🍍'];
+
+  // Cấu hình chuyển động game
+  const CONFIG = {
+    lerpFactor: 0.05, // Độ mượt (Càng nhỏ càng êm, càng lớn càng nhanh). 0.05 là rất mượt.
+    pixelsPerPoint: 20 // 1 điểm = 20px (Giải quyết vấn đề "nhích từng tí")
+  };
+
+  // Thay thế Link GIF bằng VỊT (DUCK) chạy sang phải
+  const CAR_GIF_URL = "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif";
+
+
+  // Vòng lặp tự động tạo 13 đường đua
+  countries.forEach(country => {
+    // Tạo ngẫu nhiên 3-5 loại hoa quả trên mỗi đường đua
+    let fruitsHtml = '';
+    const numFruits = Math.floor(Math.random() * 3) + 3; // 3 đến 5 quả
+    for(let j=0; j<numFruits; j++) {
+       const randomFruit = fruits[Math.floor(Math.random() * fruits.length)];
+       const randomPos = Math.floor(Math.random() * 80) + 10; // Vị trí random từ 10% đến 90%
+       // Random delay để hoa quả bay không đồng đều nhìn cho tự nhiên
+       const delay = Math.random() * 2; 
+       fruitsHtml += `<span class="fruit" style="left: ${randomPos}%; animation-delay: ${delay}s">${randomFruit}</span>`;
+    }
+
+    const trackHtml = `
+      <div class="track-container">
+        <img src="${country.flag}" class="flag" alt="${country.name}">
+        <img src="${country.giftImg}" class="gift-img" alt="gift">
+        <div class="track">
+          ${fruitsHtml} <!-- Chèn hoa quả vào đường đua -->
+          <!-- Đã đổi từ SPAN emoji sang IMG gif -->
+          <img id="${country.id}" class="car" src="${CAR_GIF_URL}" alt="Car">
+        </div>
+      </div>
+    `;
+    board.innerHTML += trackHtml;
+  });
+
+  // Kết nối tới Server (Đảm bảo server đang chạy ở port 3001)
+  const socket = io("http://localhost:3001");
+
+  // Lưu trữ trạng thái vị trí của các xe để xử lý animation
+  const carPositions = {};
+  
+  // Map để tra cứu thông tin quốc gia nhanh (cho bảng xếp hạng)
+  const countryMap = {};
+  countries.forEach(c => countryMap[c.id] = c);
+
+  // Lắng nghe cập nhật từ server
+  socket.on("raceUpdate", data => {
+    Object.keys(data).forEach(carId => {
+      // Nếu xe chưa có trong danh sách theo dõi, thêm vào
+      if (!carPositions[carId]) {
+        const el = document.getElementById(carId);
+        if (el) carPositions[carId] = { current: 0, target: 0, element: el };
+      }
+      
+      // Cập nhật đích đến mới (Nhân với tỷ lệ pixel để đi xa hơn)
+      if (carPositions[carId]) {
+        carPositions[carId].target = data[carId] * CONFIG.pixelsPerPoint;
+      }
+    });
+    
+    // Cập nhật bảng xếp hạng Quốc Gia (Top 3 xe đi xa nhất)
+    updateCountryLeaderboard(data);
+  });
+
+  function updateCountryLeaderboard(raceData) {
+    // Chuyển object data thành array, sắp xếp giảm dần theo điểm, lấy Top 3
+    const sorted = Object.entries(raceData)
+      .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+      .slice(0, 3);
+
+    const listDiv = document.getElementById("country-list");
+    listDiv.innerHTML = sorted.map(([carId, score], index) => {
+      const info = countryMap[carId];
+      return `
+        <div class="board-item">
+          <span class="rank-num">#${index + 1}</span>
+          <div class="item-info">
+            <img src="${info.flag}" style="width:20px;height:15px;object-fit:cover;">
+            <span>${info.name}</span>
+          </div>
+          <span class="item-score">${score}</span>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Lắng nghe cập nhật MVP
+  socket.on("mvpUpdate", topUsers => {
+    const listDiv = document.getElementById("mvp-list");
+    listDiv.innerHTML = topUsers.map(u => `
+      <div class="board-item">
+        <span class="rank-num">#${u.rank}</span>
+        <div class="item-info">${u.name}</div>
+        <span class="item-score">${u.score}</span>
+      </div>
+    `).join('');
+  });
+
+  // Vòng lặp Game Loop (Chạy liên tục 60 khung hình/giây)
+  function gameLoop() {
+    const trackWidth = document.querySelector('.track').offsetWidth || window.innerWidth;
+    
+    for (const id in carPositions) {
+      const car = carPositions[id];
+      // Công thức Linear Interpolation (Lerp): Vị trí hiện tại tiến dần về đích một cách mượt mà
+      car.current += (car.target - car.current) * CONFIG.lerpFactor;
+      
+      // --- LOGIC LẶP LẠI (INFINITE RUNNER) ---
+      // Nếu vị trí hiển thị vượt quá chiều rộng đường đua
+      // Chúng ta dùng phép chia lấy dư (%) để nó quay lại từ đầu
+      // Tuy nhiên vì car.current tăng mãi mãi theo điểm số, ta cần xử lý hiển thị:
+      
+      let displayPos = car.current % trackWidth;
+      
+      if (car.element) {
+        car.element.style.left = displayPos + "px";
+        checkCollision(car.element);
+      }
+    }
+    requestAnimationFrame(gameLoop);
+  }
+  gameLoop(); // Khởi động vòng lặp
+
+  function checkCollision(car) {
+    const track = car.parentElement;
+    const fruits = track.querySelectorAll('.fruit');
+    // Tính vị trí đầu xe (mép bên phải của khung xe)
+    const carFrontX = car.offsetLeft + car.offsetWidth;
+
+    fruits.forEach(fruit => {
+      // Nếu quả chưa bị ăn VÀ vị trí quả nằm sau đầu xe (xe đã đi tới hoặc vượt qua)
+      if (fruit.style.opacity !== '0' && fruit.offsetLeft < carFrontX) {
+        // Tạo hiệu ứng "ăn" vật phẩm: Phóng to lên và mờ dần
+        fruit.style.transition = "all 0.3s ease-out";
+        fruit.style.transform = "scale(2) translateY(-10px)"; 
+        fruit.style.opacity = "0";
+      }
+    });
+  }
+
+  // --- LOGIC ĐẾM NGƯỢC ---
+  function startCountdown() {
+    const layer = document.getElementById('countdown-layer');
+    const text = document.getElementById('countdown-text');
+    let count = 3;
+
+    text.innerText = count;
+
+    const interval = setInterval(() => {
+      count--;
+      if (count > 0) {
+        text.innerText = count;
+      } else if (count === 0) {
+        text.innerText = "GO!";
+        text.style.color = "#00ff00"; // Màu xanh cho chữ GO
+      } else {
+        clearInterval(interval);
+        // Ẩn lớp phủ
+        layer.style.opacity = '0';
+        setTimeout(() => {
+          layer.style.display = 'none';
+        }, 500);
+      }
+    }, 1000);
+  }
+
+  // Chạy đếm ngược khi tải trang
+  window.onload = startCountdown;
+</script>
+</body>
+</html>
