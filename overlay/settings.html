@@ -79,14 +79,27 @@
     <button class="save-btn" onclick="saveSettings()">💾 Lưu Cài Đặt</button>
   </div>
 
+  <div class="card" style="margin-top: 20px; max-width: 400px;">
+    <h3>👤 Cấu Hình Chung</h3>
+    <div class="form-group">
+      <label>TikTok Username (Người đang Live):</label>
+      <input type="text" id="tiktokUsername" value="" placeholder="Ví dụ: father.run52">
+    </div>
+  </div>
+
   <div class="grid-container" id="settings-form">
     <div style="color:#aaa;">Đang tải dữ liệu cấu hình...</div>
   </div>
 
   <script>
     let configData = [];
+    let appSettings = {};
 
     async function loadSettings() {
+      const resSettings = await fetch('/api/app-settings');
+      appSettings = await resSettings.json();
+      document.getElementById('tiktokUsername').value = appSettings.tiktokUsername || '';
+
       const res = await fetch('/api/config');
       configData = await res.json();
       
@@ -104,6 +117,13 @@
     }
 
     async function saveSettings() {
+      appSettings.tiktokUsername = document.getElementById('tiktokUsername').value;
+      await fetch('/api/app-settings', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(appSettings) 
+      });
+
       configData.forEach((c, i) => {
         c.name = document.getElementById(`name-${i}`).value;
         c.flag = document.getElementById(`flag-${i}`).value;

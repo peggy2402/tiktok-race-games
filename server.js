@@ -50,7 +50,15 @@ let race = {};
 // Hàm nạp cấu hình và tạo lại bộ từ điển
 function loadAndMapConfig() {
   if (fs.existsSync(CONFIG_FILE)) {
-    raceConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    try {
+      const fileContent = fs.readFileSync(CONFIG_FILE, 'utf8');
+      raceConfig = JSON.parse(fileContent);
+    } catch (error) {
+      console.error(`⚠️ Lỗi khi đọc file ${CONFIG_FILE}:`, error.message);
+      console.log("🔄 Đang khôi phục cấu hình mặc định...");
+      raceConfig = DEFAULT_CONFIG;
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(raceConfig, null, 2));
+    }
   } else {
     raceConfig = DEFAULT_CONFIG;
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(raceConfig, null, 2));
@@ -82,106 +90,129 @@ app.post('/api/config', (req, res) => {
 // Lưu trữ điểm của người xem để tính MVP
 let userScores = {};
 
-// Username TikTok LIVE của bạn
-const tiktokUsername = "father.run52";
+// --- CẤU HÌNH TIKTOK USERNAME ---
+const APP_SETTINGS_FILE = path.join(__dirname, 'app_settings.json');
+let appSettings = { tiktokUsername: "father.run52" };
 
-// Cấu hình kết nối TikTok Live (Thêm options để giả lập trình duyệt và tránh lỗi 200)
-const tiktok = new WebcastPushConnection(tiktokUsername, {
-  // Thêm API Key của bạn từ EulerStream.com vào đây để tránh lỗi Rate Limit
-  signApiKey: process.env.EULER_API_KEY, // <-- Sử dụng biến môi trường từ file .env
-  processInitialData: false,
-  enableExtendedGiftInfo: true,
-  enableWebsocketUpgrade: true,
-  requestPollingInterval: 2000,
-  clientParams: {
-    "app_language": "en-US",
-    "device_platform": "web_pc"
+function loadAppSettings() {
+  if (fs.existsSync(APP_SETTINGS_FILE)) {
+    try {
+      appSettings = JSON.parse(fs.readFileSync(APP_SETTINGS_FILE, 'utf8'));
+    } catch (e) {
+      console.error("Lỗi đọc app_settings.json, dùng mặc định.");
+    }
+  } else {
+    fs.writeFileSync(APP_SETTINGS_FILE, JSON.stringify(appSettings, null, 2));
   }
+}
+loadAppSettings();
+
+// API: Lấy app settings
+app.get('/api/app-settings', (req, res) => res.json(appSettings));
+
+// API: Cập nhật app settings
+app.post('/api/app-settings', (req, res) => {
+  const oldUsername = appSettings.tiktokUsername;
+  appSettings = req.body;
+  fs.writeFileSync(APP_SETTINGS_FILE, JSON.stringify(appSettings, null, 2));
+  
+  if (oldUsername !== appSettings.tiktokUsername) {
+    console.log(`\n🔄 TikTok Username thay đổi từ '${oldUsername}' sang '${appSettings.tiktokUsername}'. Đang kết nối lại...`);
+    initTikTokConnection(); // Tự động kết nối lại khi user thay đổi
+  }
+  res.json({ success: true });
 });
 
-// Hàm xử lý kết nối để có thể tái sử dụng (Reconnect)
+let tiktok = null;
+let reconnectTimeout = null;
+
+function initTikTokConnection() {
+  if (tiktok) {
+    try { tiktok.disconnect(); } catch (e) {} // Ngắt kết nối với phiên cũ
+  }
+  if (reconnectTimeout) clearTimeout(reconnectTimeout);
+
+  tiktok = new WebcastPushConnection(appSettings.tiktokUsername, {
+    signApiKey: process.env.EULER_API_KEY,
+    processInitialData: false,
+    enableExtendedGiftInfo: true,
+    enableWebsocketUpgrade: true,
+    requestPollingInterval: 2000,
+    clientParams: {
+      "app_language": "en-US",
+      "device_platform": "web_pc"
+    }
+  });
+
+  tiktok.on('disconnected', () => {
+    console.warn("⚠️ Mất kết nối tới Live Stream!");
+    console.log("🔄 Đang thử kết nối lại sau 5 giây...");
+    reconnectTimeout = setTimeout(connectTikTok, 5000);
+  });
+
+  tiktok.on('streamEnd', () => {
+    console.warn("⚠️ Stream đã kết thúc!");
+    reconnectTimeout = setTimeout(connectTikTok, 10000);
+  });
+
+  tiktok.on("gift", data => {
+    const giftName = data.giftName;
+    const nickname = data.nickname;
+    console.log("Gift Name: " + giftName);
+    
+    const carId = GIFT_MAPPING[giftName];
+
+    if (!carId) {
+      console.log(`❌ CHƯA CÓ MAPPING: ${nickname} gửi "${giftName}" -> Hãy thêm "${giftName}" vào cấu hình.`);
+      return; 
+    }
+
+    let score = data.diamondCount || 1; 
+
+    console.log(`✅ ${COUNTRY_NAMES[carId]} TĂNG TỐC! | User: ${nickname} | Quà: ${giftName} (+${score} điểm)`);
+
+    race[carId] += score;
+
+    if (!userScores[nickname]) userScores[nickname] = 0;
+    userScores[nickname] += score;
+
+    const topUsers = Object.entries(userScores)
+      .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+      .slice(0, 3)
+      .map(([name, s], index) => ({ rank: index + 1, name, score: s }));
+
+    io.emit("mvpUpdate", topUsers); 
+
+    io.emit("newGift", {
+      carId: carId,
+      giftName: giftName,
+      nickname: data.nickname || "Viewer",
+      score: score
+    });
+
+    io.emit("raceUpdate", race);
+  });
+
+  connectTikTok();
+}
+
 function connectTikTok() {
+  if (!tiktok) return;
   tiktok.connect().then(state => {
-    // Thêm một dòng mới để không bị ghi đè bởi thông báo chờ
-    console.log(`\n✅ Đã kết nối tới TikTok Live: ${tiktokUsername} (Room ID: ${state.roomId})`);
+    console.log(`\n✅ Đã kết nối tới TikTok Live: ${appSettings.tiktokUsername} (Room ID: ${state.roomId})`);
   }).catch(err => {
     if (String(err).includes('UserOfflineError')) {
-      // Khi user chưa online, hiển thị thông báo gọn gàng trên 1 dòng và tự cập nhật
-      process.stdout.write(`🟡 Chờ "${tiktokUsername}" livestream... Tự động kiểm tra lại. (Lần cuối: ${new Date().toLocaleTimeString()})\r`);
+      process.stdout.write(`🟡 Chờ "${appSettings.tiktokUsername}" livestream... Tự động kiểm tra lại. (Lần cuối: ${new Date().toLocaleTimeString()})\r`);
     } else {
-      // Với các lỗi khác, vẫn in chi tiết để debug
       console.error("\n❌ Lỗi kết nối:", err);
       console.log("🔄 Đang thử kết nối lại sau 5 giây...");
     }
-    setTimeout(connectTikTok, 5000);
+    reconnectTimeout = setTimeout(connectTikTok, 5000);
   });
 }
 
-// Lắng nghe sự kiện mất kết nối để tự động reconnect
-tiktok.on('disconnected', () => {
-  console.warn("⚠️ Mất kết nối tới Live Stream!");
-  console.log("🔄 Đang thử kết nối lại sau 5 giây...");
-  setTimeout(connectTikTok, 5000);
-});
-
-// Lắng nghe sự kiện Stream kết thúc
-tiktok.on('streamEnd', () => {
-  console.warn("⚠️ Stream đã kết thúc!");
-  // Tùy chọn: Có thể thử kết nối lại đề phòng họ live lại ngay
-  setTimeout(connectTikTok, 10000);
-});
-
 // Bắt đầu kết nối lần đầu
-connectTikTok();
-
-tiktok.on("gift", data => {
-  const giftName = data.giftName;
-  const nickname = data.nickname;
-  const diamond = data.diamondCount;
-  console.log("Gift Name: " + giftName);
-  // Kiểm tra xem quà này có thuộc về quốc gia nào không
-  const carId = GIFT_MAPPING[giftName];
-
-  if (!carId) {
-    // Log ra những món quà bị bỏ qua để debug
-    console.log(`❌ CHƯA CÓ MAPPING: ${nickname} gửi "${giftName}" -> Hãy thêm "${giftName}" vào GIFT_MAPPING trong server.js`);
-    return; 
-  }
-
-  // Tính điểm: mặc định 1 xu = 1 điểm (hoặc tùy chỉnh)
-  // Bạn có thể lấy data.diamondCount để chính xác số xu
-  let score = data.diamondCount || 1; 
-
-  // Log thành công
-  console.log(`✅ ${COUNTRY_NAMES[carId]} TĂNG TỐC! | User: ${nickname} | Quà: ${giftName} (+${score} điểm)`);
-
-  // Cộng điểm cho đúng xe đó
-  race[carId] += score;
-
-  // --- XỬ LÝ MVP (Người tặng nhiều nhất) ---
-  // Cộng dồn điểm cho người dùng
-  if (!userScores[nickname]) userScores[nickname] = 0;
-  userScores[nickname] += score;
-
-  // Sắp xếp và lấy Top 3
-  const topUsers = Object.entries(userScores)
-    .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-    .slice(0, 3)
-    .map(([name, s], index) => ({ rank: index + 1, name, score: s }));
-
-  io.emit("mvpUpdate", topUsers); // Gửi danh sách MVP mới xuống Client
-
-  // Gửi thông tin gift để hiển thị effect (thêm mới)
-  io.emit("newGift", {
-    carId: carId,
-    giftName: giftName,
-    nickname: data.nickname || "Viewer",
-    score: score
-  });
-
-  // Gửi vị trí mới của cả 10 xe tới giao diện HTML
-  io.emit("raceUpdate", race);
-});
+initTikTokConnection();
 
 server.listen(3001, () => {
   console.log("Server running on port 3001");
