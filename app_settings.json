@@ -1,3 +1,11 @@
 {
-  "tiktokUsername": "father.run52"
+  "tiktokUsername": "nahla.tazkia0",
+  "enableWinSound": true,
+  "bgmUrl": "",
+  "carSize": 70,
+  "winSoundUrl": "victory.mp3",
+  "itemPoints": 1,
+  "enableNeon": true,
+  "giftSoundUrl": "pop.mp3",
+  "eatSoundUrl": "pew.mp3"
 }

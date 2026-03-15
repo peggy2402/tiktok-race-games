@@ -84,9 +84,75 @@
       font-size: 14px;
     }
     input[type="text"]:focus { border-color: #00f3ff; }
+
+    /* --- Giao diện Toast --- */
+    .toast {
+      visibility: hidden;
+      min-width: 250px;
+      background-color: rgba(30, 30, 30, 0.95);
+      color: #fff;
+      text-align: center;
+      border-radius: 8px;
+      padding: 16px 24px;
+      position: fixed;
+      z-index: 10000;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%); /* Căn giữa hoàn toàn */
+      font-size: 16px;
+      border: 2px solid #00f3ff;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+      opacity: 0;
+      transition: opacity 0.3s, visibility 0.3s;
+    }
+    .toast.show {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* --- Giao diện Modal Confirm --- */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 10001;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #1e1e1e;
+      padding: 25px 30px;
+      border-radius: 8px;
+      border: 2px solid #ff4757;
+      text-align: center;
+      box-shadow: 0 0 20px rgba(255, 71, 87, 0.4);
+      max-width: 400px;
+    }
+    .modal-content h3 { margin-top: 0; color: #ff4757; font-size: 20px; margin-bottom: 10px; }
+    .modal-buttons { margin-top: 20px; display: flex; justify-content: center; gap: 15px; }
+    .btn-cancel { background: #444; color: #fff; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-cancel:hover { background: #666; }
+    .btn-confirm { background: #ff4757; color: #fff; border: none; padding: 10px 20px; font-size: 14px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn-confirm:hover { background: #ff6b81; }
   </style>
 </head>
 <body>
+
+  <!-- Modal Xác nhận Reset -->
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>⚠️ Xác nhận LÀM MỚI</h3>
+      <p style="color: #ccc; font-size: 15px;">Bạn có chắc chắn muốn LÀM MỚI TOÀN BỘ điểm số cuộc đua không?</p>
+      <div class="modal-buttons">
+        <button class="btn-cancel" onclick="closeConfirmModal()">Hủy</button>
+        <button class="btn-confirm" onclick="executeReset()">Chắc chắn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vùng chứa Toast -->
+  <div id="toast" class="toast"></div>
 
   <div class="header">
     <h1>⚙️ Tùy Chỉnh Đường Đua</h1>
@@ -96,11 +162,52 @@
     </div>
   </div>
 
-  <div class="card" style="margin-top: 20px; max-width: 400px;">
-    <h3>👤 Cấu Hình Chung</h3>
-    <div class="form-group">
-      <label>TikTok Username (Người đang Live):</label>
-      <input type="text" id="tiktokUsername" value="" placeholder="Ví dụ: father.run52">
+  <div style="display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px;">
+    <div class="card" style="flex: 1; min-width: 300px; max-width: 400px;">
+      <h3>👤 Cấu Hình Chung</h3>
+      <div class="form-group">
+        <label>TikTok Username (Người đang Live):</label>
+        <input type="text" id="tiktokUsername" value="" placeholder="Ví dụ: father.run52">
+      </div>
+      <div class="form-group">
+        <label>Nhạc Nền BGM (Tên file trong thư mục overlay hoặc Link web):</label>
+        <input type="text" id="bgmUrl" value="" placeholder="Ví dụ: nhacnen.mp3 hoặc https://...">
+      </div>
+      <div class="form-group">
+        <label>Nhạc Chiến Thắng (Tên file trong thư mục overlay hoặc Link web):</label>
+        <input type="text" id="winSoundUrl" value="" placeholder="Ví dụ: chienthang.mp3 hoặc https://...">
+      </div>
+      <div class="form-group">
+        <label>Nhạc Tặng Quà (Biu biu):</label>
+        <input type="text" id="giftSoundUrl" value="" placeholder="Ví dụ: pew.mp3 hoặc https://...">
+      </div>
+      <div class="form-group">
+        <label>Nhạc Ăn Vật Phẩm (Pọc pọc):</label>
+        <input type="text" id="eatSoundUrl" value="" placeholder="Ví dụ: pop.mp3 hoặc https://...">
+      </div>
+      <div class="form-group">
+        <label>Kích Thước Phương Tiện (px):</label>
+        <input type="number" id="carSize" value="70" min="20" max="200" style="background:#2a2a2a; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; outline:none;">
+      </div>
+      <div class="form-group">
+        <label>Điểm thưởng khi ăn vật phẩm:</label>
+        <input type="number" id="itemPoints" value="5" min="1" max="100" style="background:#2a2a2a; border:1px solid #444; color:#fff; padding:8px; border-radius:4px; outline:none;">
+      </div>
+      <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+        <label style="margin: 0; font-size: 14px;">Bật âm thanh chiến thắng:</label>
+        <input type="checkbox" id="enableWinSound" style="width: 18px; height: 18px;">
+      </div>
+      <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+        <label style="margin: 0; font-size: 14px;">Bật hiệu ứng Neon (xe phát sáng):</label>
+        <input type="checkbox" id="enableNeon" style="width: 18px; height: 18px;">
+      </div>
+    </div>
+
+    <div class="card" style="flex: 1; min-width: 300px; max-width: 400px;">
+      <h3>🎁 Hướng Dẫn Tặng Quà</h3>
+      <div id="gift-list" style="max-height: 195px; overflow-y: auto; font-size: 14px; background: #2a2a2a; padding: 10px; border-radius: 4px; border: 1px solid #444;">
+        <div style="color:#aaa;">Đang tải...</div>
+      </div>
     </div>
   </div>
 
@@ -116,9 +223,25 @@
       const resSettings = await fetch('/api/app-settings');
       appSettings = await resSettings.json();
       document.getElementById('tiktokUsername').value = appSettings.tiktokUsername || '';
+      document.getElementById('bgmUrl').value = appSettings.bgmUrl || '';
+      document.getElementById('winSoundUrl').value = appSettings.winSoundUrl || '';
+      document.getElementById('giftSoundUrl').value = appSettings.giftSoundUrl || '';
+      document.getElementById('eatSoundUrl').value = appSettings.eatSoundUrl || '';
+      document.getElementById('enableWinSound').checked = appSettings.enableWinSound !== false;
+      document.getElementById('carSize').value = appSettings.carSize || 70;
+      document.getElementById('itemPoints').value = appSettings.itemPoints || 5;
+      document.getElementById('enableNeon').checked = appSettings.enableNeon !== false;
 
       const res = await fetch('/api/config');
       configData = await res.json();
+
+      document.getElementById('gift-list').innerHTML = configData.map(c => `
+        <div style="display:flex; align-items:center; justify-content:space-between; padding: 5px 0; border-bottom: 1px dashed #444;">
+          <div style="display:flex; align-items:center; gap:5px; width:45%;"><img src="${c.giftImg}" style="height:25px; object-fit:contain;"> <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.giftName}</span></div>
+          <span>➡️</span>
+          <div style="display:flex; align-items:center; gap:5px; width:45%; justify-content:flex-end;">${c.name} <img src="${c.flag}" style="height:15px; border-radius:2px;"></div>
+        </div>
+      `).join('');
       
       const form = document.getElementById('settings-form');
       form.innerHTML = configData.map((c, i) => `
@@ -135,6 +258,14 @@
 
     async function saveSettings() {
       appSettings.tiktokUsername = document.getElementById('tiktokUsername').value;
+      appSettings.bgmUrl = document.getElementById('bgmUrl').value;
+      appSettings.winSoundUrl = document.getElementById('winSoundUrl').value;
+      appSettings.giftSoundUrl = document.getElementById('giftSoundUrl').value;
+      appSettings.eatSoundUrl = document.getElementById('eatSoundUrl').value;
+      appSettings.enableWinSound = document.getElementById('enableWinSound').checked;
+      appSettings.carSize = parseInt(document.getElementById('carSize').value) || 70;
+      appSettings.itemPoints = parseInt(document.getElementById('itemPoints').value) || 5;
+      appSettings.enableNeon = document.getElementById('enableNeon').checked;
       await fetch('/api/app-settings', { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
@@ -150,14 +281,32 @@
       });
 
       await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(configData) });
-      alert('✅ Đã lưu cấu hình! OBS/Trình duyệt stream sẽ tự động tải lại.');
+      showToast('✅ Đã lưu cấu hình! OBS/Trình duyệt stream sẽ tự động tải lại.');
     }
 
-    async function resetRace() {
-      if(confirm('⚠️ Bạn có chắc muốn LÀM MỚI TOÀN BỘ ĐIỂM SỐ không?')) {
-        await fetch('/api/reset', { method: 'POST' });
-        alert('✅ Đã reset điểm số cuộc đua!');
-      }
+    // Hàm hiển thị Toast có thể gọi lại ở bất cứ đâu
+    function showToast(message, duration = 3000) {
+      const toast = document.getElementById("toast");
+      toast.innerText = message;
+      toast.classList.add("show");
+      setTimeout(() => {
+        toast.classList.remove("show");
+      }, duration);
+    }
+
+    // Hàm mở Modal Confirm
+    function resetRace() {
+      document.getElementById('confirmModal').style.display = 'flex';
+    }
+    // Hàm đóng Modal
+    function closeConfirmModal() {
+      document.getElementById('confirmModal').style.display = 'none';
+    }
+    // Hàm gọi API sau khi chắc chắn
+    async function executeReset() {
+      closeConfirmModal();
+      await fetch('/api/reset', { method: 'POST' });
+      showToast('✅ Đã reset điểm số cuộc đua!');
     }
 
     window.onload = loadSettings;

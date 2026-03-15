@@ -36,10 +36,7 @@ const DEFAULT_CONFIG = [
   { id: 'car7', name: 'UAE', flag: 'https://flagcdn.com/w80/ae.png', giftName: 'Pop', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/0b4f61e8ab637f11449300d03929ef87.png~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
   { id: 'car8', name: 'United States', flag: 'https://flagcdn.com/w80/us.png', giftName: 'Ice Cream', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/968820bc85e274713c795a6aef3f7c67~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
   { id: 'car9', name: 'Japan', flag: 'https://flagcdn.com/w80/jp.png', giftName: 'Music Note', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/1f5ca5cfb4b98c2761fb85987f47c641.png~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
-  { id: 'car10', name: 'South Korea', flag: 'https://flagcdn.com/w80/kr.png', giftName: 'Vinyl Record', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
-  { id: 'car11', name: 'Mexico', flag: 'https://flagcdn.com/w80/mx.png', giftName: 'Glow Stick', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
-  { id: 'car12', name: 'Brazil', flag: 'https://flagcdn.com/w80/br.png', giftName: 'GG', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' },
-  { id: 'car13', name: 'UK', flag: 'https://flagcdn.com/w80/gb.png', giftName: 'Birthday Cake', giftImg: 'https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' }
+  { id: 'car10', name: 'South Korea', flag: 'https://flagcdn.com/w80/kr.png', giftName: 'Vinyl Record', giftImg: 'https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.webp', carImg: 'https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif' }
 ];
 
 let raceConfig = [];
@@ -52,7 +49,8 @@ function loadAndMapConfig() {
   if (fs.existsSync(CONFIG_FILE)) {
     try {
       const fileContent = fs.readFileSync(CONFIG_FILE, 'utf8');
-      raceConfig = JSON.parse(fileContent);
+      // Giới hạn cấu hình tải lên từ file chỉ lấy tối đa 10 xe
+      raceConfig = JSON.parse(fileContent).slice(0, 10);
     } catch (error) {
       console.error(`⚠️ Lỗi khi đọc file ${CONFIG_FILE}:`, error.message);
       console.log("🔄 Đang khôi phục cấu hình mặc định...");
@@ -92,12 +90,20 @@ let userScores = {};
 
 // --- CẤU HÌNH TIKTOK USERNAME ---
 const APP_SETTINGS_FILE = path.join(__dirname, 'app_settings.json');
-let appSettings = { tiktokUsername: "father.run52" };
+let appSettings = { tiktokUsername: "father.run52", enableWinSound: true, bgmUrl: "", winSoundUrl: "", giftSoundUrl: "https://www.myinstants.com/media/sounds/pew_1.mp3", eatSoundUrl: "https://www.myinstants.com/media/sounds/pop_7e9ls8L.mp3", carSize: 70, enableNeon: true, itemPoints: 5 };
 
 function loadAppSettings() {
   if (fs.existsSync(APP_SETTINGS_FILE)) {
     try {
       appSettings = JSON.parse(fs.readFileSync(APP_SETTINGS_FILE, 'utf8'));
+      if (appSettings.enableWinSound === undefined) appSettings.enableWinSound = true;
+      if (appSettings.bgmUrl === undefined) appSettings.bgmUrl = "";
+      if (appSettings.winSoundUrl === undefined) appSettings.winSoundUrl = "";
+      if (appSettings.giftSoundUrl === undefined) appSettings.giftSoundUrl = "https://www.myinstants.com/media/sounds/pew_1.mp3";
+      if (appSettings.eatSoundUrl === undefined) appSettings.eatSoundUrl = "https://www.myinstants.com/media/sounds/pop_7e9ls8L.mp3";
+      if (appSettings.itemPoints === undefined) appSettings.itemPoints = 5;
+      if (appSettings.carSize === undefined) appSettings.carSize = 70;
+      if (appSettings.enableNeon === undefined) appSettings.enableNeon = true;
     } catch (e) {
       console.error("Lỗi đọc app_settings.json, dùng mặc định.");
     }
@@ -133,6 +139,17 @@ app.post('/api/reset', (req, res) => {
   io.emit("mvpUpdate", []);
   io.emit("raceReset"); // Bắn tín hiệu để overlay reset xe về vạch đích
   res.json({ success: true });
+});
+
+// Lắng nghe sự kiện từ Giao diện (Overlay)
+io.on("connection", (socket) => {
+  socket.on("eatItem", (data) => {
+    if (race[data.carId] !== undefined) {
+      race[data.carId] += data.points || 5; // Thưởng điểm khi ăn vật phẩm
+      console.log(`🎁 ${COUNTRY_NAMES[data.carId]} vừa ăn vật phẩm! (+${data.points || 5} điểm)`);
+      io.emit("raceUpdate", race);
+    }
+  });
 });
 
 let tiktok = null;

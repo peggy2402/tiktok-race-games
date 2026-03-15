@@ -5,7 +5,7 @@
     "flag": "https://flagcdn.com/w80/id.png",
     "giftName": "Rose",
     "giftImg": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.webp",
-    "carImg": "https://cdnl.iconscout.com/lottie/premium/thumb/running-car-8287933-6621764.gif"
+    "carImg": "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif"
   },
   {
     "id": "car2",
@@ -77,30 +77,6 @@
     "flag": "https://flagcdn.com/w80/kr.png",
     "giftName": "Vinyl Record",
     "giftImg": "https://p16-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/77f6ab69b0b03bda98a0a3d2bfdeb46f.png~tplv-obj.webp",
-    "carImg": "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif"
-  },
-  {
-    "id": "car11",
-    "name": "Mexico",
-    "flag": "https://flagcdn.com/w80/mx.png",
-    "giftName": "Glow Stick",
-    "giftImg": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/8e1a5d66370c5586545e358e37c10d25~tplv-obj.webp",
-    "carImg": "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif"
-  },
-  {
-    "id": "car12",
-    "name": "Brazil",
-    "flag": "https://flagcdn.com/w80/br.png",
-    "giftName": "GG",
-    "giftImg": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3f02fa9594bd1495ff4e8aa5ae265eef~tplv-obj.webp",
-    "carImg": "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif"
-  },
-  {
-    "id": "car13",
-    "name": "UK",
-    "flag": "https://flagcdn.com/w80/gb.png",
-    "giftName": "Birthday Cake",
-    "giftImg": "https://p16-webcast.tiktokcdn.com/img/maliva/webcast-va/3ac5ec732f6f4ba7b1492248bfea83d6~tplv-obj.webp",
     "carImg": "https://cdn.creazilla.com/animations/15538651/cartoon-steamer-duck-walking-animation-gif-animation.gif"
   }
 ]
