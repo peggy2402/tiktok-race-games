@@ -123,6 +123,18 @@ app.post('/api/app-settings', (req, res) => {
   res.json({ success: true });
 });
 
+// API: Reset điểm số
+app.post('/api/reset', (req, res) => {
+  for (let key in race) {
+    race[key] = 0;
+  }
+  userScores = {};
+  io.emit("raceUpdate", race);
+  io.emit("mvpUpdate", []);
+  io.emit("raceReset"); // Bắn tín hiệu để overlay reset xe về vạch đích
+  res.json({ success: true });
+});
+
 let tiktok = null;
 let reconnectTimeout = null;
 

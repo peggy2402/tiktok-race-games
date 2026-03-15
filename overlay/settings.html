@@ -36,6 +36,20 @@
     }
     button.save-btn:hover { background: #00e0eb; }
     
+    button.reset-btn {
+      background: #ff4757;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+      margin-right: 10px;
+    }
+    button.reset-btn:hover { background: #ff6b81; }
+
     .grid-container {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -76,7 +90,10 @@
 
   <div class="header">
     <h1>⚙️ Tùy Chỉnh Đường Đua</h1>
-    <button class="save-btn" onclick="saveSettings()">💾 Lưu Cài Đặt</button>
+    <div>
+      <button class="reset-btn" onclick="resetRace()">🔄 Reset Điểm Số</button>
+      <button class="save-btn" onclick="saveSettings()">💾 Lưu Cài Đặt</button>
+    </div>
   </div>
 
   <div class="card" style="margin-top: 20px; max-width: 400px;">
@@ -134,6 +151,13 @@
 
       await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(configData) });
       alert('✅ Đã lưu cấu hình! OBS/Trình duyệt stream sẽ tự động tải lại.');
+    }
+
+    async function resetRace() {
+      if(confirm('⚠️ Bạn có chắc muốn LÀM MỚI TOÀN BỘ ĐIỂM SỐ không?')) {
+        await fetch('/api/reset', { method: 'POST' });
+        alert('✅ Đã reset điểm số cuộc đua!');
+      }
     }
 
     window.onload = loadSettings;

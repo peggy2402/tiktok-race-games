@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TikTok Live Race</title>
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<!-- Thư viện hiệu ứng pháo hoa -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 <style>
   /* Ẩn thanh cuộn (Scrollbar) cho toàn bộ trang */
@@ -189,6 +191,44 @@
   @keyframes float { from { transform: translateY(0); } to { transform: translateY(-8px); } }
   @keyframes glow { from { filter: drop-shadow(0 0 2px gold); } to { filter: drop-shadow(0 0 10px #fff700); } }
 
+  /* --- FINISH LINE --- */
+  #finish-line {
+    position: absolute;
+    right: 20px;
+    top: 100px; /* Dưới header */
+    bottom: 20px;
+    width: 20px;
+    background: repeating-linear-gradient(45deg, #fff 0, #fff 10px, #000 10px, #000 20px);
+    z-index: 10;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.5);
+  }
+
+  /* --- WIN MODAL --- */
+  #win-modal {
+    position: fixed;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .win-content {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+    padding: 30px 50px;
+    border-radius: 20px;
+    text-align: center;
+    color: #000;
+    box-shadow: 0 0 50px rgba(255, 215, 0, 0.8);
+    transform: scale(1.2);
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .win-content img { width: 120px; border-radius: 10px; margin-bottom: 15px; border: 3px solid #fff; }
+  .win-content h2 { margin: 0; font-size: 36px; text-transform: uppercase; font-weight: 900; }
+  @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1.2); opacity: 1; } }
+
   /* --- RESPONSIVE MOBILE (Dưới 768px) --- */
   @media (max-width: 768px) {
     .header-container {
@@ -294,6 +334,13 @@
     <div id="countdown-text">READY</div>
   </div>
 
+  <!-- Hiệu ứng Modal Chiến Thắng -->
+  <div id="win-modal">
+    <div class="win-content" id="win-content">
+      <!-- Content sẽ được inject bằng JS -->
+    </div>
+  </div>
+
   <div class="main-container">
     <!-- Header chứa 2 bảng -->
     <div class="header-container">
@@ -316,6 +363,9 @@
 
     <!-- Khu vực chứa 10 đường đua -->
     <div id="race-board"></div>
+
+    <!-- Vạch đích -->
+    <div id="finish-line"></div>
   </div>
 
 <script>
@@ -382,7 +432,7 @@
       // Nếu xe chưa có trong danh sách theo dõi, thêm vào
       if (!carPositions[carId]) {
         const el = document.getElementById(carId);
-        if (el) carPositions[carId] = { current: 0, target: 0, element: el };
+        if (el) carPositions[carId] = { current: 0, target: 0, lap: 0, element: el };
       }
       
       // Cập nhật đích đến mới (Nhân với tỷ lệ pixel để đi xa hơn)
@@ -429,9 +479,24 @@
     `).join('');
   });
 
+  // Lắng nghe sự kiện Reset từ Server
+  socket.on("raceReset", () => {
+    for (const id in carPositions) {
+      carPositions[id].current = 0;
+      carPositions[id].target = 0;
+      carPositions[id].lap = 0;
+      if (carPositions[id].element) {
+        carPositions[id].element.style.left = "0px";
+      }
+    }
+    document.getElementById("country-list").innerHTML = '<div style="text-align:center; font-size:14px; color:#aaa;">Đang chờ dữ liệu...</div>';
+    document.getElementById("mvp-list").innerHTML = '<div style="text-align:center; font-size:14px; color:#aaa;">Chưa có dữ liệu...</div>';
+  });
+
   // Vòng lặp Game Loop (Chạy liên tục 60 khung hình/giây)
   function gameLoop() {
-    const trackWidth = document.querySelector('.track').offsetWidth || window.innerWidth;
+    const trackElem = document.querySelector('.track');
+    const trackWidth = trackElem ? trackElem.offsetWidth : window.innerWidth;
     
     for (const id in carPositions) {
       const car = carPositions[id];
@@ -443,6 +508,13 @@
       // Chúng ta dùng phép chia lấy dư (%) để nó quay lại từ đầu
       // Tuy nhiên vì car.current tăng mãi mãi theo điểm số, ta cần xử lý hiển thị:
       
+      // Kiểm tra xe chạm vạch đích (Hoàn thành 1 vòng mới)
+      let currentLap = Math.floor(car.current / trackWidth);
+      if (currentLap > car.lap && car.lap >= 0) {
+        car.lap = currentLap; // Lưu lại số vòng
+        showWinModal(id); // Hiển thị chúc mừng
+      }
+
       let displayPos = car.current % trackWidth;
       
       if (car.element) {
@@ -468,6 +540,31 @@
         fruit.style.opacity = "0";
       }
     });
+  }
+
+  // --- LOGIC HIỂN THỊ CHIẾN THẮNG & PHÁO HOA ---
+  let winTimeout = null;
+  function showWinModal(carId) {
+    const info = countryMap[carId];
+    const modal = document.getElementById('win-modal');
+    const content = document.getElementById('win-content');
+    
+    content.innerHTML = `
+      <img src="${info.flag}" alt="flag">
+      <h2>${info.name}<br>VƯỢT ĐÍCH!</h2>
+    `;
+    
+    modal.style.display = 'flex';
+    setTimeout(() => modal.style.opacity = '1', 50);
+    
+    // Bắn pháo hoa 🎉
+    confetti({ particleCount: 200, spread: 100, origin: { y: 0.5 }, zIndex: 10001 });
+
+    if(winTimeout) clearTimeout(winTimeout);
+    winTimeout = setTimeout(() => {
+      modal.style.opacity = '0';
+      setTimeout(() => modal.style.display = 'none', 500);
+    }, 3000);
   }
 
   // --- LOGIC ĐẾM NGƯỢC ---
