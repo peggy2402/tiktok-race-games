@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cài Đặt Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #121212;
+      color: #fff;
+      padding: 20px;
+      margin: 0;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: rgba(18, 18, 18, 0.95);
+      padding: 10px 0;
+      border-bottom: 2px solid #333;
+      z-index: 1000;
+    }
+    button.save-btn {
+      background: #00f3ff;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    }
+    button.save-btn:hover { background: #00e0eb; }
+    
+    .grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .card {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .card h3 {
+      margin: 0 0 15px 0;
+      color: #ffd700;
+      border-bottom: 1px solid #444;
+      padding-bottom: 5px;
+    }
+    .form-group {
+      margin-bottom: 10px;
+      display: flex;
+      flex-direction: column;
+    }
+    label { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+    input[type="text"] {
+      background: #2a2a2a;
+      border: 1px solid #444;
+      color: #fff;
+      padding: 8px;
+      border-radius: 4px;
+      outline: none;
+      font-size: 14px;
+    }
+    input[type="text"]:focus { border-color: #00f3ff; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>⚙️ Tùy Chỉnh Đường Đua</h1>
+    <button class="save-btn" onclick="saveSettings()">💾 Lưu Cài Đặt</button>
+  </div>
+
+  <div class="grid-container" id="settings-form">
+    <div style="color:#aaa;">Đang tải dữ liệu cấu hình...</div>
+  </div>
+
+  <script>
+    let configData = [];
+
+    async function loadSettings() {
+      const res = await fetch('/api/config');
+      configData = await res.json();
+      
+      const form = document.getElementById('settings-form');
+      form.innerHTML = configData.map((c, i) => `
+        <div class="card">
+          <h3>🏎️ Track ${i + 1} (${c.id})</h3>
+          <div class="form-group"><label>Tên Quốc Gia (hoặc Tên Người):</label><input type="text" id="name-${i}" value="${c.name}"></div>
+          <div class="form-group"><label>Link Ảnh Cờ (Flag URL):</label><input type="text" id="flag-${i}" value="${c.flag}"></div>
+          <div class="form-group"><label>Tên Quà Nhận Diện (Gift Name):</label><input type="text" id="giftName-${i}" value="${c.giftName}"></div>
+          <div class="form-group"><label>Link Ảnh Quà (Gift Image URL):</label><input type="text" id="giftImg-${i}" value="${c.giftImg}"></div>
+          <div class="form-group"><label>Link Vịt/Xe (Character URL):</label><input type="text" id="carImg-${i}" value="${c.carImg}"></div>
+        </div>
+      `).join('');
+    }
+
+    async function saveSettings() {
+      configData.forEach((c, i) => {
+        c.name = document.getElementById(`name-${i}`).value;
+        c.flag = document.getElementById(`flag-${i}`).value;
+        c.giftName = document.getElementById(`giftName-${i}`).value;
+        c.giftImg = document.getElementById(`giftImg-${i}`).value;
+        c.carImg = document.getElementById(`carImg-${i}`).value;
+      });
+
+      await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(configData) });
+      alert('✅ Đã lưu cấu hình! OBS/Trình duyệt stream sẽ tự động tải lại.');
+    }
+
+    window.onload = loadSettings;
+  </script>
+</body>
+</html>
