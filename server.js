@@ -241,9 +241,19 @@ function connectTikTok() {
 }
 
 // Bắt đầu kết nối lần đầu
-initTikTokConnection();
+setTimeout(() => {
+  try {
+    initTikTokConnection();
+  } catch (err) {
+    console.error("TikTok init error:", err);
+  }
+}, 3000);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+app.get("/", (req, res) => {
+  res.send("Server OK 🚀");
 });
