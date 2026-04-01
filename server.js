@@ -12,7 +12,7 @@ const server = http.createServer(app);
 app.use(express.json()); // Hỗ trợ đọc dữ liệu JSON từ body request
 
 // Cấu hình phục vụ file tĩnh từ thư mục "overlay" (cho phép truy cập localhost:3001/overlay.html)
-app.use(express.static(path.join(process.cwd(), 'overlay')));
+app.use(express.static(path.join(__dirname, 'overlay')));
 
 // Cấu hình Socket.io cho phép kết nối từ file HTML (Cors)
 const io = new Server(server, {
@@ -23,7 +23,7 @@ const io = new Server(server, {
 });
 
 // --- HỆ THỐNG QUẢN LÝ CẤU HÌNH (SETTINGS) ---
-const CONFIG_FILE = path.join(process.cwd(), 'race_config.json');
+const CONFIG_FILE = path.join(__dirname, 'race_config.json');
 
 // Cấu hình mặc định ban đầu
 const DEFAULT_CONFIG = [
@@ -89,7 +89,7 @@ app.post('/api/config', (req, res) => {
 let userScores = {};
 
 // --- CẤU HÌNH TIKTOK USERNAME ---
-const APP_SETTINGS_FILE = path.join(process.cwd(), 'app_settings.json');
+const APP_SETTINGS_FILE = path.join(__dirname, 'app_settings.json');
 let appSettings = { tiktokUsername: "father.run52", enableWinSound: true, bgmUrl: "", winSoundUrl: "", giftSoundUrl: "https://www.myinstants.com/media/sounds/pew_1.mp3", eatSoundUrl: "https://www.myinstants.com/media/sounds/pop_7e9ls8L.mp3", carSize: 70, enableNeon: true, itemPoints: 5 };
 
 function loadAppSettings() {
@@ -173,6 +173,11 @@ function initTikTokConnection() {
     }
   });
 
+  // BẮT BUỘC: Lắng nghe sự kiện lỗi để Node.js không bị crash khi IP Railway bị TikTok chặn/rate-limit
+  tiktok.on('error', err => {
+    console.error("⚠️ Lỗi từ kết nối TikTok (Có thể do mạng hoặc IP bị giới hạn):", err.message || err);
+  });
+
   tiktok.on('disconnected', () => {
     console.warn("⚠️ Mất kết nối tới Live Stream!");
     console.log("🔄 Đang thử kết nối lại sau 5 giây...");
@@ -239,6 +244,16 @@ function connectTikTok() {
     reconnectTimeout = setTimeout(connectTikTok, 5000);
   });
 }
+
+// --- BẢO VỆ SERVER KHÔNG BỊ CRASH (RẤT QUAN TRỌNG KHI DEPLOY CLOUD) ---
+process.on('uncaughtException', (err) => {
+  console.error("🔥 Uncaught Exception (Đã chặn crash):", err);
+  // Không gọi process.exit(1) để giữ server sống
+});
+process.on('unhandledRejection', (reason, promise) => {
+  console.error("🔥 Unhandled Rejection (Đã chặn crash):", reason);
+  // Không gọi process.exit(1) để giữ server sống
+});
 
 // Bắt đầu kết nối lần đầu
 setTimeout(() => {
