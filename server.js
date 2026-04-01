@@ -243,8 +243,7 @@ function connectTikTok() {
 // Bắt đầu kết nối lần đầu
 initTikTokConnection();
 
-// Khởi chạy server ở cổng 3002 (hoặc cổng cấu hình trong file .env)
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
