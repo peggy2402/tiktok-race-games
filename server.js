@@ -270,5 +270,35 @@ server.listen(PORT, "0.0.0.0", () => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Server OK 🚀");
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="vi">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Trang Chủ - TikTok Live Race</title>
+      <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        h1 { color: #00f3ff; margin-bottom: 30px; text-shadow: 0 0 10px rgba(0,243,255,0.5); text-align: center; }
+        .btn-container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .btn { text-decoration: none; background: #1e1e1e; color: #fff; padding: 30px 50px; border-radius: 12px; font-size: 20px; font-weight: bold; border: 2px solid #333; transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 15px; min-width: 150px; text-align: center; }
+        .btn:hover { transform: translateY(-5px); border-color: #00f3ff; box-shadow: 0 10px 20px rgba(0, 243, 255, 0.3); }
+        .btn-settings:hover { border-color: #ffd700; box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3); }
+      </style>
+    </head>
+    <body>
+      <h1>🏎️ TikTok Live Race Server</h1>
+      <div class="btn-container">
+        <a href="/overlay.html" class="btn" target="_blank">
+          <span style="font-size: 50px;">🎮</span>
+          Mở Màn Hình Game<br><span style="font-size: 14px; color:#aaa; font-weight:normal;">(Dành cho OBS)</span>
+        </a>
+        <a href="/settings.html" class="btn btn-settings" target="_blank">
+          <span style="font-size: 50px;">⚙️</span>
+          Cài Đặt Game<br><span style="font-size: 14px; color:#aaa; font-weight:normal;">(Quản lý / Config)</span>
+        </a>
+      </div>
+    </body>
+    </html>
+  `);
 });
