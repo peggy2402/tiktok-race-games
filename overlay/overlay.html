@@ -518,8 +518,8 @@
     pixelsPerPoint: 20 // 1 điểm = 20px (Giải quyết vấn đề "nhích từng tí")
   };
 
-  // Kết nối tới Server (Đảm bảo server đang chạy ở port 3001)
-  const socket = io("http://localhost:3001");
+  // Kết nối tới Server (Tự động nhận diện port hiện tại thay vì điền cứng)
+  const socket = io();
   const carPositions = {};
 
   // Căn chỉnh vạch đích khớp vừa vặn với độ rộng của 10 đường đua

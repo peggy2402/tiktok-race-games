@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Cài Đặt Game</title>
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -209,6 +210,13 @@
         <div style="color:#aaa;">Đang tải...</div>
       </div>
     </div>
+
+    <div class="card" style="flex: 2; min-width: 300px;">
+      <h3>📝 Live Logs (Lịch sử tương tác)</h3>
+      <div id="live-logs" style="height: 420px; overflow-y: auto; font-size: 13px; background: #2a2a2a; padding: 10px; border-radius: 4px; border: 1px solid #444; font-family: Consolas, monospace; line-height: 1.5;">
+        <div style="color:#aaa;">Đang kết nối...</div>
+      </div>
+    </div>
   </div>
 
   <div class="grid-container" id="settings-form">
@@ -308,6 +316,33 @@
       await fetch('/api/reset', { method: 'POST' });
       showToast('✅ Đã reset điểm số cuộc đua!');
     }
+
+    // === LOGIC LIVE LOGS (Sử dụng Socket.io) ===
+    const socket = io();
+
+    function addLog(message, color = '#fff') {
+      const logContainer = document.getElementById('live-logs');
+      if (logContainer.innerHTML.includes('Đang kết nối...')) {
+        logContainer.innerHTML = ''; // Xóa chữ chờ khi có dữ liệu
+      }
+      
+      const time = new Date().toLocaleTimeString('vi-VN');
+      const logItem = document.createElement('div');
+      logItem.style.marginBottom = '6px';
+      logItem.style.borderBottom = '1px dashed #444';
+      logItem.style.paddingBottom = '4px';
+      logItem.innerHTML = `<span style="color:#888">[${time}]</span> <span style="color:${color}">${message}</span>`;
+      
+      logContainer.appendChild(logItem);
+      // Tự động cuộn xuống cuối cùng khi có tin nhắn mới
+      logContainer.scrollTop = logContainer.scrollHeight; 
+    }
+
+    socket.on('connect', () => addLog('🟢 Đã kết nối với máy chủ bắt sự kiện!', '#00ff00'));
+    socket.on('disconnect', () => addLog('🔴 Mất kết nối tới máy chủ!', '#ff4757'));
+    
+    socket.on('newGift', (data) => addLog(`🎁 <b>${data.nickname}</b> vừa tặng quà cho xe <b>${data.carId}</b> (+${data.score} điểm)`, '#00f3ff'));
+    socket.on('raceReset', () => addLog(`🔄 Hệ thống đã làm mới lại điểm số!`, '#ff4757'));
 
     window.onload = loadSettings;
   </script>

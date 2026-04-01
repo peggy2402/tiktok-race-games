@@ -12,7 +12,7 @@ const server = http.createServer(app);
 app.use(express.json()); // Hỗ trợ đọc dữ liệu JSON từ body request
 
 // Cấu hình phục vụ file tĩnh từ thư mục "overlay" (cho phép truy cập localhost:3001/overlay.html)
-app.use(express.static(path.join(__dirname, 'overlay')));
+app.use(express.static(path.join(process.cwd(), 'overlay')));
 
 // Cấu hình Socket.io cho phép kết nối từ file HTML (Cors)
 const io = new Server(server, {
@@ -23,7 +23,7 @@ const io = new Server(server, {
 });
 
 // --- HỆ THỐNG QUẢN LÝ CẤU HÌNH (SETTINGS) ---
-const CONFIG_FILE = path.join(__dirname, 'race_config.json');
+const CONFIG_FILE = path.join(process.cwd(), 'race_config.json');
 
 // Cấu hình mặc định ban đầu
 const DEFAULT_CONFIG = [
@@ -89,7 +89,7 @@ app.post('/api/config', (req, res) => {
 let userScores = {};
 
 // --- CẤU HÌNH TIKTOK USERNAME ---
-const APP_SETTINGS_FILE = path.join(__dirname, 'app_settings.json');
+const APP_SETTINGS_FILE = path.join(process.cwd(), 'app_settings.json');
 let appSettings = { tiktokUsername: "father.run52", enableWinSound: true, bgmUrl: "", winSoundUrl: "", giftSoundUrl: "https://www.myinstants.com/media/sounds/pew_1.mp3", eatSoundUrl: "https://www.myinstants.com/media/sounds/pop_7e9ls8L.mp3", carSize: 70, enableNeon: true, itemPoints: 5 };
 
 function loadAppSettings() {
@@ -243,6 +243,8 @@ function connectTikTok() {
 // Bắt đầu kết nối lần đầu
 initTikTokConnection();
 
-server.listen(3001, () => {
-  console.log("Server running on port 3001");
+// Khởi chạy server ở cổng 3002 (hoặc cổng cấu hình trong file .env)
+const PORT = process.env.PORT || 3002;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
