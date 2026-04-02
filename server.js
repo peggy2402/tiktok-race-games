@@ -302,3 +302,8 @@ server.listen(PORT, "0.0.0.0", () => {
     }
   }, 2000);
 });
+
+// API: Health Check (Rất quan trọng để Render không bị Timeout)
+app.get('/health', (req, res) => res.status(200).send('OK'));
+app.get('/ping', (req, res) => res.status(200).send('pong'));
+
