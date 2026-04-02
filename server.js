@@ -255,20 +255,6 @@ process.on('unhandledRejection', (reason, promise) => {
   // Không gọi process.exit(1) để giữ server sống
 });
 
-// Bắt đầu kết nối lần đầu
-setTimeout(() => {
-  try {
-    initTikTokConnection();
-  } catch (err) {
-    console.error("TikTok init error:", err);
-  }
-}, 3000);
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
-});
-
 app.get("/", (req, res) => {
   res.send(`
     <!DOCTYPE html>
@@ -301,4 +287,18 @@ app.get("/", (req, res) => {
     </body>
     </html>
   `);
+});
+
+const PORT = parseInt(process.env.PORT, 10) || 3000;
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server running on port ${PORT}`);
+  
+  // Khởi động kết nối TikTok SAU KHI web server đã lắng nghe thành công
+  setTimeout(() => {
+    try {
+      initTikTokConnection();
+    } catch (err) {
+      console.error("TikTok init error:", err);
+    }
+  }, 2000);
 });
